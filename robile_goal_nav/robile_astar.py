@@ -23,18 +23,14 @@ class R_Astar():
         '''
         :param state: a current state of the world
         robot_position: our current position of the robot in state
-        Returns a tuple of eligible children indexes to explore
+        Returns a list of tuples of eligible children indexes to explore
         '''
 
         robot_x, robot_y = robot_position
         available_moves = []
 
-        idx_x = state.index[robot_x]
-        idx_y = state.index[robot_y]
-
-
-        for neighbor_x in range(idx_x-1, idx_x+2):
-            for neighbor_y in range(idx_y-1, idx_y+2):
+        for neighbor_x in range(robot_x-1, robot_x+2):
+            for neighbor_y in range(robot_y-1, robot_y+2):
 
                 available_moves.append((neighbor_x,neighbor_y))
 
