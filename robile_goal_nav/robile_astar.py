@@ -18,11 +18,11 @@ class R_Astar():
 
         return m_d
 
-    def child_generator(self,state,robot_position):
+    def child_generator(self,robot_position):
 
         '''
-        :param state: a current state of the world
-        robot_position: our current position of the robot in state
+        :param 
+        robot_position: current index of robot position in the world
         Returns a list of tuples of eligible children indexes to explore
         '''
 
