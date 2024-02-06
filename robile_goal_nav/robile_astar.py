@@ -3,7 +3,7 @@ from geometry_msgs.msg import Point, Twist, PoseStamped
 
 class R_Astar():
     
-    def __init__(start, goal):
+    def __init__(self,start, goal):
 
         self.goal = goal
         self.start = start
@@ -18,34 +18,29 @@ class R_Astar():
 
         return m_d
 
-    def child_generator(state,robot_position):
+    def child_generator(self,state,robot_position):
+
+        '''
+        :param state: a current state of the world
+        robot_position: our current position of the robot in state
+        Returns a tuple of eligible children indexes to explore
+        '''
 
         robot_x, robot_y = robot_position
         available_moves = []
-        robot_idx_x = state.index[robot_x]
-        robot_idx_y = state.index[robot_y]
+
+        idx_x = state.index[robot_x]
+        idx_y = state.index[robot_y]
 
 
-        for neighbor_x in range(robot_idx_x-1, robot_idx_x+2):
+        for neighbor_x in range(idx_x-1, idx_x+2):
+            for neighbor_y in range(idx_y-1, idx_y+2):
 
-            for neighbor_y in range(robot_idx_y-1, robot__idx_y+2):
+                available_moves.append((neighbor_x,neighbor_y))
 
-                if state[neighbor_x,neighbor_y] == 0:
-
-                    available_moves.append(state)
-
+        return available_moves
                     
 
 
-
-
-
-
-
-        
-        
-
-        
-        return
 
 
