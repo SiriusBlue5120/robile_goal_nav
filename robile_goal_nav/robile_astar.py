@@ -14,15 +14,15 @@ class R_Astar():
         self.map_size = (20,20)
 
 
-    def heuristic(self,robot_position,goal_position):
+    def heuristic(self,robot_idx,goal_idx):
         '''
-        :robot_position: in the real world
-        :goal_position: in the real world
-        :returns: Returns the Manhattan heuristic esrimation
+        :robot_idx: in the grid 
+        :goal_idx: in the grid
+        :returns: Returns the Manhattan heuristic estimation
         '''
         
-        robot_x, robot_y = robot_position
-        goal_x, goal_y = goal_position
+        robot_x, robot_y = robot_idx
+        goal_x, goal_y = goal_idx
 
         h_n = abs(goal_x - robot_x) + abs(goal_y-robot_y) 
 
@@ -83,7 +83,7 @@ class R_Astar():
 
 
 
-    def A_star(self,robot_position, goal_position, robot_idx, goal_idx,state):
+    def A_star(self, robot_idx, goal_idx,state):
         '''
         :robot_position: the position of robot in the real world
         :goal_position: The goal position in the real world
@@ -91,11 +91,10 @@ class R_Astar():
         :goal_idx: the index of goal in grid map
         :state: the current state of the world
         '''
-        explored = set()   # idx of the explored nodes
-        explored.add(robot_idx)
+        explored = set(robot_idx)   # idx of the explored nodes
         fringe = []
         heapify(fringe)
-        heappush(fringe,(self.heuristic(robot_position,goal_position),robot_idx))
+        heappush(fringe,(self.heuristic(robot_idx,goal_idx),robot_idx))
 
 
         while fringe:
@@ -117,8 +116,9 @@ class R_Astar():
                         if state[child_x][child_y] != 1: # Just considering unoccupied cells
 
                             explored.add(child_idx)
-                            distance = self.heuristic(self.idx_to_pose(child_idx),goal_position)
-                            heappush(fringe,(distance,child_idx))  
+                            estimated_cost = self.heuristic(child_idx,goal_idx)
+                            total_cost = len(explored) + estimated_cost
+                            heappush(fringe,(total_cost,child_idx))  
 
 
         return explored
