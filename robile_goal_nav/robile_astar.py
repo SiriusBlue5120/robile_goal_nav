@@ -1,18 +1,77 @@
 import numpy as np
 from typing import Callable, List, Tuple
-from geometry_msgs.msg import Point, Twist, PoseStamped
+from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose
 from heapq import heappop,heappush,heapify
+import rclpy
+from rclpy.node import Node
+from nav_msgs.msg import OccupancyGrid
 
 
-class R_Astar():
+class R_Astar(Node):
     
-    def __init__(self,start, goal):
+    def __init__(self,start):
 
-        self.goal = goal
+        self.goal = (26,50)
         self.start = start
         self.resolution = 0.1
         self.map_size = (20,20)
+        super().__init__(node_name="A_star")
+        self.timestamp = {}
+        self.state : np.array
 
+        # Creating subscriber
+        self.subscriber = self.create_subscription(
+                        OccupancyGrid,
+                        "/map",
+                        self.listener_callback,
+                        10
+                        )
+             
+        # Creating publisher
+        self.publisher = self.create_publisher(
+                        PoseArray,
+                        "/plan",
+                        10
+                        )
+
+    def listener_callback(self, msg:OccupancyGrid):
+        self.get_logger().info(f'I am recieving the map...')
+
+        self.timestamp = { 
+            "sec": msg.header.stamp.sec,
+            "nanosec":msg.header.stamp.nanosec
+        }
+
+        self.map = msg.data
+        self.width = msg.info.width
+        self.height = msg.info.height
+        self.resolution = msg.info.resolution
+
+        # Converting the map to a 2D array
+        self.state = np.reshape(self.map,(self.width,self.height), order='F')
+
+
+    def publish_path(self,path):
+
+        path_msg = PoseArray()
+        pose_list = []
+
+        for idx in path:
+            position = self.idx_to_pose(idx)
+            pose_msg = Pose()
+
+            pose_msg.position.x = position[0]
+            pose_msg.position.y = position[1]
+
+            pose_list.append(pose_msg)
+
+        path_msg.poses = pose_list
+        path_msg.header.stamp.sec = self.timestamp["sec"]
+        path_msg.header.stamp.nanosec = self.timestamp["nanosec"]
+        path_msg.header.frame_id = '/map'
+
+        self.publisher.publish(path_msg)
+        
 
     def heuristic(self,robot_idx,goal_idx):
         '''
@@ -83,13 +142,13 @@ class R_Astar():
 
 
 
-    def A_star(self, robot_idx, goal_idx,state):
+    def A_star(self, robot_idx, goal_idx):
         '''
         :robot_position: the position of robot in the real world
         :goal_position: The goal position in the real world
         :robot_idx: the index of robot in grid map
         :goal_idx: the index of goal in grid map
-        :state: the current state of the world
+        :state: a 2D array of current state of the world
         '''
         explored = set(robot_idx)   # idx of the explored nodes
         fringe = []
@@ -113,11 +172,11 @@ class R_Astar():
 
                         child_x,child_y = child_idx
 
-                        if state[child_x][child_y] != 1: # Just considering unoccupied cells
+                        if self.state[child_x][child_y] != 1: # Just considering unoccupied cells
 
                             explored.add(child_idx)
                             estimated_cost = self.heuristic(child_idx,goal_idx)
-                            total_cost = len(explored) + estimated_cost
+                            total_cost = len(explored)  + estimated_cost
                             heappush(fringe,(total_cost,child_idx))  
 
 
