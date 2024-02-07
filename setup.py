@@ -23,6 +23,7 @@ setup(
             'my_node = robile_goal_nav.my_node:main',
             'send_goal = robile_goal_nav.send_goal:main',
             'send_goal_copy = robile_goal_nav.send_goal_copy:main',
+            'exploration = robile_goal_nav.exploration:main'
         ],
     },
 )
