@@ -20,12 +20,12 @@ class Exploration(Node):
                 OccupancyGrid, "/map",
                 self.get_occupancy_grid,
                 10)
-        self.data_grid = []
-        self.height = 0.
-        self.width = 0.
+        self.data_grid: np.ndarray
+        self.height = 0
+        self.width = 0
         self.origin = Pose()
-        self.resolution = 0
-        self.random_point = np.zeros(4)
+        self.resolution = 0.0
+        self.random_point = np.zeros(2, dtype=np.int64)
         self.odom_frame = 'map'
         self.robot_frame = 'base_link'
 
@@ -39,15 +39,14 @@ class Exploration(Node):
             10)
         
 
-
     def get_occupancy_grid(self, msg:OccupancyGrid):
 
-        self.data_grid = np.array([msg.data]).flatten()
+        self.data_grid = np.array(msg.data, dtype=np.int64)
         # print(self.data_grid)
         self.height = msg.info.height
         self.width = msg.info.width
         self.origin = msg.info.origin
-        # print(self.origin)
+        # print(f"self.origin: {self.origin}")
         self.resolution = msg.info.resolution
         self.calculate_fringe_pose()
         self.pose_next.header.frame_id = self.odom_frame
@@ -55,35 +54,40 @@ class Exploration(Node):
         self.pose_publisher.publish(self.pose_next)
         
 
-
     def calculate_fringe_pose(self):
-        if self.data_grid != [] :
-            data_in_2d = self.data_grid.reshape((self.height,self.width),order='F')
+        data_in_2d = self.data_grid.reshape((self.height, self.width), order='F')
             
-            #  values to random sampling
+        # Values to random sampling
+        self.random_point = np.zeros(2, dtype=np.int64)
+        condition = False
 
-            while not self.random_point.nonzero():
-                x = np.random.randint(0,self.height)
-                y = np.random.randint(0,self.width)
-                radius = 500
- 
-                free_space = (np.sum(data_in_2d[x-radius:x+radius,y-radius:y+radius] == 0)/np.size(data_in_2d[x-radius:x+radius,y-radius:y+radius]))
-                occupied_space = (np.sum(data_in_2d[x-radius:x+radius,y-radius:y+radius] > 0)/np.size(data_in_2d[x-radius:x+radius,y-radius:y+radius]))
-                unknown_space = (np.sum(data_in_2d[x-radius:x+radius,y-radius:y+radius] == -1)/np.size(data_in_2d[x-radius:x+radius,y-radius:y+radius]))
-                condition = (0.1 <= free_space <= 0.3)  and \
-                        (0.5 <= unknown_space <= 0.8)
+        while not condition:
+            x = np.random.randint(0,self.height)
+            y = np.random.randint(0,self.width)
+            radius = 500
+
+            data_slice = data_in_2d[x-radius:x+radius,y-radius:y+radius]
+            data_slice_size = np.size(data_slice)
+
+            free_space = (np.sum(data_slice == 0, dtype=np.float32) / data_slice_size)
+            occupied_space = (np.sum(data_slice > 0, dtype=np.float32) / data_slice_size)
+            unknown_space = (np.sum(data_slice == -1, dtype=np.float32) / data_slice_size)
+            condition = (0.1 <= free_space <= 0.3) and (0.5 <= unknown_space <= 1.0)
                     
-                #TODO : figure the condition
-                if condition :
-                    self.random_point[0:2] = [x,y]
+            # TODO: figure the condition
+            if condition :
+                self.random_point[0:2] = [x, y]
 
-            if self.verbose:
-                print('------------')
-                print(self.random_point)
+                break
 
-            self.pose_next.pose.position.x = self.random_point[0]*self.resolution + self.origin.position.x
-            self.pose_next.pose.position.y = self.random_point[1]*self.resolution + self.origin.position.y
-            self.pose_next.pose.position.z = self.random_point[2]*self.resolution + self.origin.position.z
+        if self.verbose:
+            print('------------')
+            print(self.random_point)
+
+        self.pose_next.pose.position.x = self.random_point[0]*self.resolution + self.origin.position.x
+        self.pose_next.pose.position.y = self.random_point[1]*self.resolution + self.origin.position.y
+        # self.pose_next.pose.position.z = self.random_point[2]*self.resolution + self.origin.position.z
+
 
 
 def main(args=None):
