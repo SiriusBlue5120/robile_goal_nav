@@ -26,6 +26,7 @@ class R_Astar(Node):
                         self.listener_callback,
                         10
                         )
+        self.origin: Pose
              
         # Creating publisher
         self.publisher = self.create_publisher(
@@ -48,7 +49,8 @@ class R_Astar(Node):
         self.resolution = msg.info.resolution
 
         # Converting the map to a 2D array
-        self.state = np.reshape(self.map,(self.width,self.height), order='F')
+        self.state = np.reshape(self.map, (self.width,self.height), order='F')
+        self.origin = msg.info.origin
 
 
     def publish_path(self,path):
@@ -87,6 +89,7 @@ class R_Astar(Node):
 
         return h_n
 
+
     def child_generator(self,robot_idx):
 
         ''' 
@@ -107,39 +110,28 @@ class R_Astar(Node):
         return available_moves
                     
 
-    def pose_to_idx (self,robot_position,goal_position):
+    def pose_to_idx(self, pose):
             '''
-            :robot_position: the position of robot in the real world
-            :goal_position: The goal position in the real world
+            :pose: the pose of robot in the real world
             :return: the idx of the robot and the goal in the grid map 
             '''
-            
-            cell_counts = tuple(int(dim / self.resolution + ((dim / self.resolution) + 1) % 2) \
-                for dim in self.map_size)
-            self.grid_center = tuple(int((dim - 1) / 2) for dim in cell_counts)
+            robot_x, robot_y = pose
+            robot_grid_x = round((robot_x - self.origin.position.x) / self.resolution)
+            robot_grid_y = round((robot_y - self.origin.position.y) / self.resolution)
 
-            robot_x,robot_y = robot_position
-            robot_grid_x = round(robot_x/self.resolution)+ self.grid_center[0]
-            robot_grid_y = round(robot_y/self.resolution)+ self.grid_center[1]
-
-            goal_x,goal_y = goal_position
-            goal_grid_x = round(goal_x/self.resolution)+ self.grid_center[0]
-            goal_grid_y = round(goal_y/self.resolution)+ self.grid_center[1]
-
-            return ((robot_grid_x,robot_grid_y),(goal_grid_x,goal_grid_y))
+            return (robot_grid_x, robot_grid_y)
     
 
-    def idx_to_pose(self,robot_idx):
+    def idx_to_pose(self, robot_idx):
         '''
         :robot_idx: the index of robot in grid map
-        :return: the posiition of robot in real world
+        :return: the position of robot in real world
         '''
-        robot_x,robot_y = robot_idx
-        position_x = (robot_x - self.grid_center) * self.resolution 
-        position_y = (robot_y - self.grid_center) * self.resolution 
-        return ((position_x,position_y))
+        robot_x, robot_y = robot_idx
+        position_x = (robot_x * self.resolution) + self.origin.position.x
+        position_y = (robot_y * self.resolution) + self.origin.position.y
 
-
+        return (position_x, position_y)
 
 
     def A_star(self, robot_idx, goal_idx):
