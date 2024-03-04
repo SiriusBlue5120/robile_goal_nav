@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import PoseStamped, Pose
+from geometry_msgs.msg import  Pose, PointStamped
 from geometry_msgs.msg import TransformStamped
 import tf_transformations as tf
 import tf2_ros
@@ -33,9 +33,9 @@ class Exploration(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         # publisher for pose
-        self.pose_next = PoseStamped()
+        self.pose_next = PointStamped()
         self.pose_publisher = self.create_publisher(
-            PoseStamped, '/pose_explore',
+            PointStamped, '/pose_explore',
             10)
         
 
@@ -84,8 +84,8 @@ class Exploration(Node):
             print('------------')
             print(self.random_point)
 
-        self.pose_next.pose.position.x = self.random_point[0]*self.resolution + self.origin.position.x
-        self.pose_next.pose.position.y = self.random_point[1]*self.resolution + self.origin.position.y
+        self.pose_next.point.x = self.random_point[0]*self.resolution + self.origin.position.x
+        self.pose_next.point.y = self.random_point[1]*self.resolution + self.origin.position.y
         # self.pose_next.pose.position.z = self.random_point[2]*self.resolution + self.origin.position.z
 
 
