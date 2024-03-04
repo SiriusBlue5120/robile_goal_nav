@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Callable, List, Tuple
-from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose
+from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose,PointStamped
 from heapq import heappop,heappush,heapify
 import rclpy
 from rclpy.node import Node
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid,Odometry
 
 
 class R_Astar(Node):
@@ -17,17 +17,37 @@ class R_Astar(Node):
         self.map_size = (20,20)
         super().__init__(node_name="A_star")
         self.timestamp = {}
+        self.robot_pose = np.zeros(2)
+        self.goal_pose = np.zeros(2)
         self.state : np.array
 
+        self.validation = True
+
         # Creating subscriber
-        self.subscriber = self.create_subscription(
+        self.subscriber_map = self.create_subscription(
                         OccupancyGrid,
                         "/map",
-                        self.listener_callback,
+                        self.map_callback,
                         10
                         )
         self.origin: Pose
-             
+        
+        # Odom linstener
+        self.subscriber_localization = self.create_subscription(
+                Odometry,
+                "/odom",
+                self.localization_callback,
+                10
+                )
+        
+        # Goal position listener
+        self.subscriber_goal_pose = self.create_subscription(
+                PointStamped,
+                "/clicked_point" if self.validation else "/pose_explore",
+                self.goal_pose_callback,
+                10
+                )
+
         # Creating publisher
         self.publisher = self.create_publisher(
                         PoseArray,
@@ -35,7 +55,7 @@ class R_Astar(Node):
                         10
                         )
 
-    def listener_callback(self, msg:OccupancyGrid):
+    def map_callback(self, msg:OccupancyGrid):
         self.get_logger().info(f'I am recieving the map...')
 
         self.timestamp = { 
@@ -52,6 +72,26 @@ class R_Astar(Node):
         self.state = np.reshape(self.map, (self.width,self.height), order='F')
         self.origin = msg.info.origin
 
+        # Calling A star
+        path = self.A_star(self.robot_idx,self.goal_idx)
+
+        # Publishing A star path
+        self.publish_path(path)
+
+    def localization_callback (self,msg:Odometry):
+        self.get_logger().info(f'Recieving robot pose..')
+
+        self.robot_pose[0] = msg.pose.pose.position.x
+        self.robot_pose[1] = msg.pose.pose.position.y
+        self.robot_idx = self.pose_to_idx(self.robot_pose)
+        
+
+    def goal_pose_callback(self,msg:PointStamped):
+        self._logger().info(f'Recieving goal pose...')
+
+        self.goal_pose[0] = msg.point.x
+        self.goal_pose[1] = msg.point.y
+        self.goal_idx = self.pose_to_idx(self.goal_pose)
 
     def publish_path(self,path):
 
@@ -93,7 +133,7 @@ class R_Astar(Node):
     def child_generator(self,robot_idx):
 
         ''' 
-        :param robot_position: current index of robot position in the world
+        :robot_idx: current index of robot position in the world
         :return: a list of tuples of eligible children indexes to explore
         '''
 
@@ -111,15 +151,15 @@ class R_Astar(Node):
                     
 
     def pose_to_idx(self, pose):
-            '''
-            :pose: the pose of robot in the real world
-            :return: the idx of the robot and the goal in the grid map 
-            '''
-            robot_x, robot_y = pose
-            robot_grid_x = round((robot_x - self.origin.position.x) / self.resolution)
-            robot_grid_y = round((robot_y - self.origin.position.y) / self.resolution)
+        '''
+        :pose: the pose of robot in the real world
+        :return: the idx of the robot and the goal in the grid map 
+        '''
+        pose_x, pose_y = pose[0] , pose[1]
+        pose_idx_x = round((pose_x - self.origin.position.x) / self.resolution)
+        pose_idx_y = round((pose_y - self.origin.position.y) / self.resolution)
 
-            return (robot_grid_x, robot_grid_y)
+        return (pose_idx_x, pose_idx_y)
     
 
     def idx_to_pose(self, robot_idx):
@@ -136,8 +176,6 @@ class R_Astar(Node):
 
     def A_star(self, robot_idx, goal_idx):
         '''
-        :robot_position: the position of robot in the real world
-        :goal_position: The goal position in the real world
         :robot_idx: the index of robot in grid map
         :goal_idx: the index of goal in grid map
         :state: a 2D array of current state of the world
