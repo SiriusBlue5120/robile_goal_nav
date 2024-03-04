@@ -61,18 +61,22 @@ class Exploration(Node):
         self.random_point = np.zeros(2, dtype=np.int64)
         condition = False
 
-        while not condition:
+        attempts = 0
+        while not condition and attempts < 25:
             x = np.random.randint(0,self.height)
             y = np.random.randint(0,self.width)
+
             radius = 500
 
             data_slice = data_in_2d[x-radius:x+radius,y-radius:y+radius]
             data_slice_size = np.size(data_slice)
 
-            free_space = (np.sum(data_slice == 0, dtype=np.float32) / data_slice_size)
-            occupied_space = (np.sum(data_slice > 0, dtype=np.float32) / data_slice_size)
-            unknown_space = (np.sum(data_slice == -1, dtype=np.float32) / data_slice_size)
-            condition = (0.1 <= free_space <= 0.3) and (0.5 <= unknown_space <= 1.0)
+            free_space = np.sum(data_slice == 0) / data_slice_size
+            occupied_space = np.sum(data_slice > 0) / data_slice_size
+            unknown_space = np.sum(data_slice == -1) / data_slice_size
+
+            condition = (0.1 <= free_space <= 0.3) and (0.2 <= unknown_space <= 1.0)
+            attempts += 1
                     
             # TODO: figure the condition
             if condition :
