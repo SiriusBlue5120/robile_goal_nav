@@ -38,8 +38,31 @@ class Exploration(Node):
             PointStamped, '/pose_explore',
             10)
         
+        # Flags
+        self.goal_explored = True
+        self.explore = True
+
+    
+    def set_explore(self):
+        self.explore = True
+
+
+    def reset_explore(self): 
+        self.explore = False
+
+
+    def set_goal_explored(self):
+        self.goal_explored = True
+
+
+    def reset_goal_explored(self):
+        self.goal_explored = False
+        
 
     def get_occupancy_grid(self, msg:OccupancyGrid):
+
+        if not self.explore:
+            return
 
         self.data_grid = np.array(msg.data, dtype=np.int64)
         # print(self.data_grid)
@@ -48,13 +71,19 @@ class Exploration(Node):
         self.origin = msg.info.origin
         # print(f"self.origin: {self.origin}")
         self.resolution = msg.info.resolution
-        self.calculate_fringe_pose()
-        self.pose_next.header.frame_id = self.odom_frame
-        self.pose_next.header.stamp = msg.header.stamp
-        self.pose_publisher.publish(self.pose_next)
-        
+
+        if self.goal_explored:
+            self.calculate_fringe_pose()
+            self.pose_next.header.frame_id = self.odom_frame
+            self.pose_next.header.stamp = msg.header.stamp
+
+            self.pose_publisher.publish(self.pose_next)
+
+            self.reset_goal_explored()
+
 
     def calculate_fringe_pose(self):
+
         data_in_2d = self.data_grid.reshape((self.height, self.width), order='F')
             
         # Values to random sampling
@@ -75,7 +104,9 @@ class Exploration(Node):
             occupied_space = np.sum(data_slice > 0) / data_slice_size
             unknown_space = np.sum(data_slice == -1) / data_slice_size
 
-            condition = (0.1 <= free_space <= 0.3) and (0.2 <= unknown_space <= 1.0)
+            self.get_logger().info(f"free: {free_space} | occupied_space: {occupied_space} | unknown_space: {unknown_space}")
+
+            condition = (0.5 <= unknown_space) # and (0.05 <= free_space)
             attempts += 1
                     
             # TODO: figure the condition
