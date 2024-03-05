@@ -42,6 +42,8 @@ class Exploration(Node):
         self.goal_explored = True
         self.explore = True
 
+        self.validation = True
+
     
     def set_explore(self):
         self.explore = True
@@ -72,7 +74,7 @@ class Exploration(Node):
         # print(f"self.origin: {self.origin}")
         self.resolution = msg.info.resolution
 
-        if self.goal_explored:
+        if self.goal_explored or self.validation:
             self.calculate_fringe_pose()
             self.pose_next.header.frame_id = self.odom_frame
             self.pose_next.header.stamp = msg.header.stamp
