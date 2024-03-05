@@ -54,6 +54,12 @@ class R_Astar(Node):
                         "/plan",
                         10
                         )
+        
+        self.check_map_publisher = self.create_publisher(
+                        OccupancyGrid,
+                        "/check_map",
+                        10
+                        )
 
     def map_callback(self, msg:OccupancyGrid):
         self.get_logger().info(f'I am recieving the map...')
@@ -68,9 +74,13 @@ class R_Astar(Node):
         self.height = msg.info.height
         self.resolution = msg.info.resolution
 
+        self.get_logger().info(f"Map of width: {self.width}, height: {self.height}, resolution: {self.resolution}")
+
         # Converting the map to a 2D array
-        self.state = np.reshape(self.map, (self.width,self.height), order='F')
+        self.state = np.reshape(self.map, (self.width, self.height), order='F')
         self.origin = msg.info.origin
+
+        self.get_logger().info(f"Map of max: {self.state.max()}, min: {self.state.min()}")
         self.get_logger().info(f'Origin is {self.origin}')
 
         # Getting index for robot and goal
@@ -82,6 +92,12 @@ class R_Astar(Node):
 
         # Calling A star
         path = self.A_star(self.robot_idx,self.goal_idx)
+
+        self.state[0, self.height-1] = 100
+
+        msg.data = np.ravel(self.state, order='F').tolist()
+
+        self.check_map_publisher.publish(msg)
 
         # Publishing A star path
         self.publish_path(path)
@@ -160,9 +176,6 @@ class R_Astar(Node):
                     continue
 
                 if (neighbor_x,neighbor_y) != (robot_x,robot_y):
-                    
-                    
-
                     available_moves.append((neighbor_x,neighbor_y))
 
         return available_moves
@@ -177,7 +190,7 @@ class R_Astar(Node):
         pose_idx_x = round((pose_x - self.origin.position.x) / self.resolution)
         pose_idx_y = round((pose_y - self.origin.position.y) / self.resolution)
 
-        return np.array((pose_idx_x, pose_idx_y))
+        return np.abs(np.array((pose_idx_x, pose_idx_y)))
     
 
     def idx_to_pose(self, robot_idx):
@@ -192,7 +205,68 @@ class R_Astar(Node):
         return np.array((position_x, position_y))
         
     
-    def A_star(self,robot_idx,goal_idx):
+    # def A_star(self,robot_idx,goal_idx):
+    #     '''
+    #     :robot_idx: the index of robot in grid map
+    #     :goal_idx: the index of goal in grid map
+    #     :state: a 2D array of current state of the world
+    #     '''
+    #     robot_idx = tuple(robot_idx)
+    #     goal_idx = tuple(goal_idx)
+
+    #     step_cost = 1
+
+    #     fringe = []
+    #     expanded_nodes = 0
+
+    #     g_cost = {robot_idx: 0}
+    #     h_cost = {robot_idx: self.heuristic(robot_idx, goal_idx)}
+
+    #     explored = []
+    #     # explored.append(robot_idx)   # idx of the explored nodes
+    #     heapify(fringe)
+    #     heappush(fringe,(self.heuristic(robot_idx,goal_idx),robot_idx))
+
+
+    #     while fringe:
+    #         #(len(fringe)>0)
+    #         # self.get_logger().info(f'working = {len(fringe)}')
+    #         _,current_node = heappop(fringe)
+            
+    #         # self.get_logger().info(f'current node, goal_idx = {current_node},{type(current_node)}')
+    #         # self.get_logger().info(f'goal node, goal_idx = {goal_idx},{type(goal_idx)}')
+    #         self.get_logger().info( f'{current_node},{goal_idx},{np.equal(current_node, goal_idx).all()}')
+
+    #         if np.equal(current_node, goal_idx).all():
+    #             self.get_logger().info(f'current node, goal_idx = {current_node},{goal_idx}')
+    #             return explored
+            
+    #         else:
+    #             explored.append(current_node)
+    #             children_idx_list = self.child_generator(current_node)
+                
+    #             # self.get_logger().info(f'Expanding children: {children_idx_list}')
+
+    #             #self.get_logger().info(f'child generator = {children_idx_list}')
+    #             for child_idx in children_idx_list:
+    #                 # self.get_logger().info(f'Child idx is {child_idx}')
+    #                 if child_idx not in explored:
+
+    #                     child_x,child_y = child_idx
+
+    #                     # self.get_logger().info(f"map state: {self.state[child_y][child_x]}")
+
+    #                     if self.state[child_y][child_x] == 100 or self.state[child_y][child_x] == 1: # Just considering unoccupied cells
+    #                         # self.get_logger().info(f'child idx is {child_idx}')
+    #                         continue
+
+    #                     estimated_cost = self.heuristic(child_idx,goal_idx)
+    #                     total_cost = len(explored)  + estimated_cost
+    #                     heappush(fringe,(total_cost,child_idx))  
+
+    #     return explored    
+
+    def A_star(self, robot_idx, goal_idx):
         '''
         :robot_idx: the index of robot in grid map
         :goal_idx: the index of goal in grid map
@@ -200,47 +274,80 @@ class R_Astar(Node):
         '''
         robot_idx = tuple(robot_idx)
         goal_idx = tuple(goal_idx)
-        explored = []
+
+        step_cost = 1
+
+        expanded_nodes = 0
+
+        g_cost = {robot_idx: 0}
+        h_cost = {robot_idx: self.heuristic(robot_idx, goal_idx)}
+
+        explored_through = {robot_idx: 0}
         # explored.append(robot_idx)   # idx of the explored nodes
+
         fringe = []
         heapify(fringe)
-        heappush(fringe,(self.heuristic(robot_idx,goal_idx),robot_idx))
-
+        heappush(fringe, (g_cost[robot_idx] + h_cost[robot_idx], robot_idx))
 
         while fringe:
             #(len(fringe)>0)
-            #self.get_logger().info(f'working = {len(fringe)}')
-            _,current_node = heappop(fringe)
+            # self.get_logger().info(f'working = {len(fringe)}')
+            _, current_node = heappop(fringe)
+            expanded_nodes += 1
+
+            print(f"current_node: {current_node} | len(fringe): {len(fringe)}")
+
             
             # self.get_logger().info(f'current node, goal_idx = {current_node},{type(current_node)}')
             # self.get_logger().info(f'goal node, goal_idx = {goal_idx},{type(goal_idx)}')
-            self.get_logger().info( f'{current_node},{goal_idx},{np.equal(current_node, goal_idx).all()}')
+            # self.get_logger().info( f'{current_node},{goal_idx},{np.equal(current_node, goal_idx).all()}')
 
             if np.equal(current_node, goal_idx).all():
-                self.get_logger().info(f'current node, goal_idx = {current_node},{goal_idx}')
-                return explored
+                # self.get_logger().info(f'current node, goal_idx = {current_node},{goal_idx}')
+                path = []
+
+                last_node = current_node
+                path.append(last_node)
+
+                while explored_through[last_node]:
+                    last_node = explored_through[last_node]
+
+                    path.append(last_node)
+
+                return path[::-1]
             
             else:
-                explored.append(current_node)
-                children_idx_list = self.child_generator(current_node)
-                
-
-                #self.get_logger().info(f'child generator = {children_idx_list}')
+                # explored.append(current_node)
+            
+                children_idx_list = self.child_generator(current_node)                
                 for child_idx in children_idx_list:
+
+
+                    # If obstacle skip
+                    child_x, child_y = child_idx
+                    if self.state[child_x][child_y] == 100 or self.state[child_x][child_y] == 1:
+                        continue
+
+                    g_estimated_cost = g_cost[current_node] + step_cost
+                
+                    # h_estimated_cost = g_cost[child_idx] + heuristic(child_idx, goal_idx)
+
+                    if child_idx not in g_cost.keys():
+                        g_cost[child_idx] = g_estimated_cost
+
                     # self.get_logger().info(f'Child idx is {child_idx}')
-                    if child_idx not in explored:
+                    if g_estimated_cost <= g_cost[child_idx]:
+                        explored_through[child_idx] = current_node
+                        g_cost[child_idx] = g_estimated_cost
+                        h_cost[child_idx] = g_estimated_cost + self.heuristic(child_idx, goal_idx)
 
-                        child_x,child_y = child_idx
+                        total_cost = g_cost[child_idx] + h_cost[child_idx]
+                        child_node = (total_cost, child_idx)
 
-                        if self.state[child_x][child_y] != 1: # Just considering unoccupied cells
-                            # self.get_logger().info(f'child idx is {child_idx}')
-                            
-                            estimated_cost = self.heuristic(child_idx,goal_idx)
-                            total_cost = len(explored)  + estimated_cost
-                            heappush(fringe,(total_cost,child_idx))  
+                        if child_node not in fringe:
+                            heappush(fringe, (total_cost, child_idx))
 
-        return explored    
-        
+        return [] 
 
 
 def main(args=None):
