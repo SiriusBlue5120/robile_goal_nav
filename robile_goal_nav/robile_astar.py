@@ -107,6 +107,8 @@ class R_Astar(Node):
         path_msg = PoseArray()
         pose_list = []
 
+        self.get_logger().info(f'Path={path}')
+
         for idx in path:
             position = self.idx_to_pose(idx)
             pose_msg = Pose()
@@ -181,9 +183,9 @@ class R_Astar(Node):
         position_y = (robot_y * self.resolution) + self.origin.position.y
 
         return np.array((position_x, position_y))
-
-
-    def A_star(self, robot_idx, goal_idx):
+        
+    
+    def A_star(self,robot_idx,goal_idx):
         '''
         :robot_idx: the index of robot in grid map
         :goal_idx: the index of goal in grid map
@@ -191,9 +193,8 @@ class R_Astar(Node):
         '''
         robot_idx = tuple(robot_idx)
         goal_idx = tuple(goal_idx)
-        parents = {robot_idx: 0}
         explored = []
-        explored.append(robot_idx)   # idx of the explored nodes
+        # explored.append(robot_idx)   # idx of the explored nodes
         fringe = []
         heapify(fringe)
         heappush(fringe,(self.heuristic(robot_idx,goal_idx),robot_idx))
@@ -213,6 +214,7 @@ class R_Astar(Node):
                 return explored
             
             else:
+                explored.append(current_node)
                 children_idx_list = self.child_generator(current_node)
                 
 
@@ -225,12 +227,13 @@ class R_Astar(Node):
 
                         if self.state[child_x][child_y] != 1: # Just considering unoccupied cells
                             # self.get_logger().info(f'child idx is {child_idx}')
-                            explored.append(child_idx)
+                            
                             estimated_cost = self.heuristic(child_idx,goal_idx)
                             total_cost = len(explored)  + estimated_cost
                             heappush(fringe,(total_cost,child_idx))  
 
-        return explored
+        return explored    
+        
 
 
 def main(args=None):
