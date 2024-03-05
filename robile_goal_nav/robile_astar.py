@@ -4,7 +4,7 @@ from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose,PointStam
 from heapq import heappop,heappush,heapify
 import rclpy
 from rclpy.node import Node
-from nav_msgs.msg import OccupancyGrid,Odometry
+from nav_msgs.msg import OccupancyGrid,Odometry,Path
 
 
 class R_Astar(Node):
@@ -50,7 +50,7 @@ class R_Astar(Node):
 
         # Creating publisher
         self.publisher = self.create_publisher(
-                        PoseArray,
+                        Path,
                         "/plan",
                         10
                         )
@@ -104,17 +104,17 @@ class R_Astar(Node):
 
     def publish_path(self,path):
 
-        path_msg = PoseArray()
+        path_msg = Path()
         pose_list = []
 
         self.get_logger().info(f'Path={path}')
 
         for idx in path:
             position = self.idx_to_pose(idx)
-            pose_msg = Pose()
+            pose_msg = PoseStamped()
 
-            pose_msg.position.x = position[0]
-            pose_msg.position.y = position[1]
+            pose_msg.pose.position.x = position[0]
+            pose_msg.pose.position.y = position[1]
 
             pose_list.append(pose_msg)
 
