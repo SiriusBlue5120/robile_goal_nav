@@ -152,9 +152,16 @@ class R_Astar(Node):
         available_moves = []
 
         for neighbor_x in range(robot_x-1, robot_x+2):
+            if neighbor_x < 0 or neighbor_x > self.width - 1:
+                continue
+            
             for neighbor_y in range(robot_y-1, robot_y+2):
+                if neighbor_y < 0 or neighbor_y > self.height - 1:
+                    continue
 
                 if (neighbor_x,neighbor_y) != (robot_x,robot_y):
+                    
+                    
 
                     available_moves.append((neighbor_x,neighbor_y))
 
