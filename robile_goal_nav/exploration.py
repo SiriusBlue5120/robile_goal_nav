@@ -17,9 +17,11 @@ class Exploration(Node):
 
         # subscription for map
         self.scan_subscriber = self.create_subscription(
-                OccupancyGrid, "/map",
-                self.get_occupancy_grid,
-                10)
+            OccupancyGrid, "/map",
+            self.get_occupancy_grid,
+            qos_profile=rclpy.qos.qos_profile_sensor_data
+        )
+        
         self.data_grid: np.ndarray
         self.height = 0
         self.width = 0
