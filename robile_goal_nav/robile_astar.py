@@ -318,7 +318,10 @@ class R_Astar(Node):
                     if self.state[child_x][child_y] == 100 or self.state[child_x][child_y] == 1:
                         continue
 
-                    g_estimated_cost = g_cost[current_node] + step_cost
+                    # g_estimated_cost = g_cost[current_node] + step_cost
+                    # This is sketchy, refactor this
+                    g_estimated_cost = g_cost[current_node] + \
+                        np.linalg.norm(np.array(current_node) - np.array(child_idx))
                 
                     # h_estimated_cost = g_cost[child_idx] + heuristic(child_idx, goal_idx)
 
