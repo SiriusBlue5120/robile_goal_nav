@@ -142,7 +142,7 @@ class R_Astar(Node):
         robot_x, robot_y = robot_idx[0], robot_idx[1]
         goal_x, goal_y = goal_idx[0],goal_idx[1]
 
-        h_n = abs(goal_x - robot_x) + abs(goal_y-robot_y) 
+        h_n = np.sqrt(((goal_x - robot_x)**2 + (goal_y-robot_y)**2))
 
         return h_n
 
