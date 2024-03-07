@@ -31,6 +31,7 @@ class R_Astar(Node):
                         10
                         )
         self.origin: Pose
+        self.map_frame = 'map'
         
         # Odom linstener
         self.subscriber_localization = self.create_subscription(
@@ -49,17 +50,12 @@ class R_Astar(Node):
                 )
 
         # Creating publisher
-        self.publisher = self.create_publisher(
+        self.publisher_path = self.create_publisher(
                         Path,
                         "/plan",
                         10
                         )
         
-        self.check_map_publisher = self.create_publisher(
-                        OccupancyGrid,
-                        "/check_map",
-                        10
-                        )
 
     def map_callback(self, msg:OccupancyGrid):
         self.get_logger().info(f'I am recieving the map...')
@@ -92,12 +88,6 @@ class R_Astar(Node):
 
         # Calling A star
         path = self.A_star(self.robot_idx,self.goal_idx)
-
-        self.state[0, self.height-1] = 100
-
-        msg.data = np.ravel(self.state, order='F').tolist()
-
-        self.check_map_publisher.publish(msg)
 
         # Publishing A star path
         self.publish_path(path)
@@ -137,9 +127,9 @@ class R_Astar(Node):
         path_msg.poses = pose_list
         path_msg.header.stamp.sec = self.timestamp["sec"]
         path_msg.header.stamp.nanosec = self.timestamp["nanosec"]
-        path_msg.header.frame_id = '/map'
+        path_msg.header.frame_id = self.map_frame
 
-        self.publisher.publish(path_msg)
+        self.publisher_path.publish(path_msg)
         
 
     def heuristic(self,robot_idx,goal_idx):
