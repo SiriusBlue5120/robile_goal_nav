@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Callable, List, Tuple
-from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose,PointStamped
+from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose,PointStamped,PoseWithCovarianceStamped
 from heapq import heappop,heappush,heapify
 import rclpy
 from rclpy.node import Node
@@ -22,6 +22,7 @@ class R_Astar(Node):
         self.state : np.array
 
         self.validation = True
+        self.usePose = True
 
         # Creating subscriber
         self.subscriber_map = self.create_subscription(
@@ -32,15 +33,15 @@ class R_Astar(Node):
                         )
         self.origin: Pose
         self.map_frame = 'map'
-        
-        # Odom linstener
+
+        # Pose or Odom listener
         self.subscriber_localization = self.create_subscription(
-                Odometry,
-                "/odom",
-                self.localization_callback,
-                10
-                )
-        
+            PoseWithCovarianceStamped if self.usePose else Odometry,
+            "/pose" if self.usePose else "/odom",
+            self.localization_callback,
+            10
+            )
+
         # Goal position listener
         self.subscriber_goal_pose = self.create_subscription(
                 PointStamped,
@@ -92,6 +93,7 @@ class R_Astar(Node):
         # Publishing A star path
         self.publish_path(path)
 
+
     def localization_callback (self,msg:Odometry):
         #self.get_logger().info(f'Recieving robot pose..')
         #self.get_logger().info(f'Robot pose is {msg.pose.pose.position.x},{msg.pose.pose.position.y}')
@@ -99,7 +101,7 @@ class R_Astar(Node):
 
         self.robot_pose[0] = msg.pose.pose.position.x
         self.robot_pose[1] = msg.pose.pose.position.y
-        
+
 
     def goal_pose_callback(self,msg:PointStamped):
         #self.get_logger().info(f'Recieving goal pose...')
