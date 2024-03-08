@@ -56,6 +56,7 @@ class R_Astar(Node):
                         "/plan",
                         10
                         )
+        self.path_msg: Path = None
         
 
     def map_callback(self, msg:OccupancyGrid):
@@ -110,9 +111,9 @@ class R_Astar(Node):
         self.goal_pose[0] = msg.point.x
         self.goal_pose[1] = msg.point.y
 
-    def publish_path(self,path):
+    def publish_path(self, path):
 
-        path_msg = Path()
+        self.path_msg = Path()
         pose_list = []
 
         self.get_logger().info(f'Path={path}')
@@ -126,12 +127,12 @@ class R_Astar(Node):
 
             pose_list.append(pose_msg)
 
-        path_msg.poses = pose_list
-        path_msg.header.stamp.sec = self.timestamp["sec"]
-        path_msg.header.stamp.nanosec = self.timestamp["nanosec"]
-        path_msg.header.frame_id = self.map_frame
+        self.path_msg.poses = pose_list
+        self.path_msg.header.stamp.sec = self.timestamp["sec"]
+        self.path_msg.header.stamp.nanosec = self.timestamp["nanosec"]
+        self.path_msg.header.frame_id = self.map_frame
 
-        self.publisher_path.publish(path_msg)
+        self.publisher_path.publish(self.path_msg)
         
 
     def heuristic(self,robot_idx,goal_idx):
