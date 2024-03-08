@@ -42,17 +42,8 @@ class Exploration(Node):
         
         # Flags
         self.goal_explored = True
-        self.explore = True
 
         self.validation = True
-
-    
-    def set_explore(self):
-        self.explore = True
-
-
-    def reset_explore(self): 
-        self.explore = False
 
 
     def set_goal_explored(self):
@@ -64,9 +55,6 @@ class Exploration(Node):
         
 
     def get_occupancy_grid(self, msg:OccupancyGrid):
-
-        if not self.explore:
-            return
 
         self.data_grid = np.array(msg.data, dtype=np.int64)
         # print(self.data_grid)
