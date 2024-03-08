@@ -72,15 +72,16 @@ class Exploration(Node):
 
     def get_occupancy_grid(self, msg:OccupancyGrid):
 
-        self.data_grid = np.array(msg.data, dtype=np.int64).reshape(\
-            (self.height, self.width), order='F')
-
         # print(self.data_grid)
         self.height = msg.info.height
         self.width = msg.info.width
         self.origin = msg.info.origin
         # print(f"self.origin: {self.origin}")
         self.resolution = msg.info.resolution
+
+        self.data_grid = np.array(msg.data, dtype=np.int64).reshape(\
+            (self.height, self.width), order='F')
+
 
         # data_in_2d = self.data_grid.reshape((self.height, self.width), order='F')
 
@@ -102,21 +103,12 @@ class Exploration(Node):
         self.robot_pose = (robot_x,robot_y)
 
         return None
-    
-    def distance_meter(self,robot,target) -> float:
-        """
-        :robot,target: (x,y) positions of robot and target point
-        """
-        
-        distance = np.sqrt((robot[0]-target[0])**2 + (robot[1]-target[1])**2)
-
-        return distance
 
 
     def calculate_fringe_pose(self):
             
         condition = False
-        point_list : np.array
+        point_list = []
         attempts = 0
         while not condition and attempts < self.attempts:
 
@@ -138,23 +130,21 @@ class Exploration(Node):
 
             condition = (0.5 <= unknown_space) # and (0.05 <= free_space)
 
-            point_list[attempts] = random_point
-
             attempts += 1
 
+            if condition:
 
-            # TODO: figure the condition
-            if condition and attempts == self.attempts:
-                
-                point_list[np.newaxis].T
-                point_list = point_list - self.robot_pose
+                point_list.append(random_point)
 
-                distance_vec = np.linalg.norm(point_list,axis=1)
-                min_value_idx = np.argmin(distance_vec)
+            break
 
-                self.pose_next = point_list[min_value_idx]
+        point_list = np.array(((point_list)))
 
-                break
+        diference_list = point_list - self.robot_pos
+        norm_vec = np.linalg.norm(diference_list,axis=1)
+        min_value_idx = np.argmin(norm_vec)
+
+        self.pose_next = point_list[min_value_idx]
 
         if self.verbose:
             print('------------')
