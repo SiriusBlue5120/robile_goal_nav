@@ -14,6 +14,7 @@ class Exploration(Node):
         super().__init__(node_name="Exploration")
         # Logging
         self.verbose = True
+        self.behavior = behavior
 
         self.data_grid: np.ndarray
         self.height = 0
@@ -34,26 +35,31 @@ class Exploration(Node):
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
-        # subscription for map
-        # self.scan_subscriber = self.create_subscription(
-        #     OccupancyGrid, "/map",
-        #     self.get_occupancy_grid,
-        #     qos_profile=rclpy.qos.qos_profile_sensor_data
-        # ) if not behavior else None
+        if not self.behavior:
+            # subscription for map
+            self.scan_subscriber = self.create_subscription(
+                OccupancyGrid, "/map",
+                self.get_occupancy_grid,
+                qos_profile=rclpy.qos.qos_profile_sensor_data
+                )
+            # Subscription to robot pose
+            self.pose_subscriber = self.create_subscription(
+                PoseWithCovarianceStamped,
+                "/pose",
+                self.pose_callback,
+                10
+                )
+            # publisher for pose
+            self.pose_publisher = self.create_publisher(
+                PointStamped, 
+                '/pose_explore',
+                10
+                )     
+        else:
+            self.scan_subscriber = None
+            self.pose_subscriber = None
+            self.pose_publisher = None
 
-        # Subscription to robot pose
-
-        # self.pose_subscriber = self.create_subscription(
-        #     PoseWithCovarianceStamped,
-        #     "/pose",
-        #     self.pose_callback,
-        #     10
-        # ) if not behavior else None
-
-        # publisher for pose
-        self.pose_publisher = self.create_publisher(
-            PointStamped, '/pose_explore',
-            10)
         self.pose_next = PointStamped()
         
         # Flags
@@ -89,7 +95,8 @@ class Exploration(Node):
         self.pose_next.header.frame_id = self.odom_frame
         self.pose_next.header.stamp = msg.header.stamp
 
-        self.pose_publisher.publish(self.pose_next)
+        if not self.behavior:
+            self.pose_publisher.publish(self.pose_next)
 
         self.reset_goal_explored()
 
