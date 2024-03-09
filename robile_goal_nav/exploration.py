@@ -115,8 +115,10 @@ class Exploration(Node):
             
         condition = False
         point_list = []
+        failed_points = []
+
         attempts = 0
-        while not condition and attempts < self.attempts:
+        while attempts < self.attempts:
 
             # Values for random sampling
             x = np.random.randint(0,self.height)
@@ -132,20 +134,21 @@ class Exploration(Node):
             occupied_space = np.sum(data_slice > 0) / data_slice_size
             unknown_space = np.sum(data_slice == -1) / data_slice_size
 
-            self.get_logger().info(f"free: {free_space} | occupied_space: {occupied_space} | unknown_space: {unknown_space}")
+            # self.get_logger().info(f"free: {free_space} | occupied_space: {occupied_space} | unknown_space: {unknown_space}")
 
             condition = (0.5 <= unknown_space) # and (0.05 <= free_space)
 
             attempts += 1
 
             if condition:
-
                 point_list.append(random_point)
+            else:
+                failed_points.append(random_point)
 
-            break
+        if not point_list:
+            point_list = failed_points
 
         point_list = np.array(((point_list)))
-
         diference_list = point_list - self.robot_pose
         norm_vec = np.linalg.norm(diference_list,axis=1)
         min_value_idx = np.argmin(norm_vec)
