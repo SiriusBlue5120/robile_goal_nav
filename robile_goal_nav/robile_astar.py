@@ -9,13 +9,11 @@ from nav_msgs.msg import OccupancyGrid,Odometry,Path
 
 class R_Astar(Node):
     
-    def __init__(self):
-
-        # self.goal = (26,50)
-        # self.start = start
-        # self.resolution = 0.1
-        # self.map_size = (20,20)
+    def __init__(self, behavior=False):
         super().__init__(node_name="A_star")
+
+        self.behavior = behavior
+
         self.timestamp = {}
         self.robot_pose = np.zeros(2)
         self.goal_pose = np.zeros(2)
@@ -24,43 +22,43 @@ class R_Astar(Node):
         self.validation = True
         self.usePose = True
 
-        # Creating subscriber
-        self.subscriber_map = self.create_subscription(
-                        OccupancyGrid,
-                        "/map",
-                        self.map_callback,
-                        10
-                        )
-        self.origin: Pose
-        self.map_frame = 'map'
-
-        # Pose or Odom listener
-        self.subscriber_localization = self.create_subscription(
-            PoseWithCovarianceStamped if self.usePose else Odometry,
-            "/pose" if self.usePose else "/odom",
-            self.localization_callback,
-            10
-            )
-
-        # Goal position listener
-        self.subscriber_goal_pose = self.create_subscription(
+        if not self.behavior:
+            # Map subscriber
+            self.subscriber_map = self.create_subscription(
+                OccupancyGrid,
+                "/map",
+                self.map_callback,
+                10
+                )
+            # Pose or Odom listener
+            self.subscriber_localization = self.create_subscription(
+                PoseWithCovarianceStamped if self.usePose else Odometry,
+                "/pose" if self.usePose else "/odom",
+                self.localization_callback,
+                10
+                )
+            # Goal position listener
+            self.subscriber_goal_pose = self.create_subscription(
                 PointStamped,
                 "/clicked_point" if self.validation else "/pose_explore",
                 self.goal_pose_callback,
                 10
                 )
+            # Creating publisher
+            self.publisher_path = self.create_publisher(
+                Path,
+                "/plan",
+                10
+                )
 
-        # Creating publisher
-        self.publisher_path = self.create_publisher(
-                        Path,
-                        "/plan",
-                        10
-                        )
+        self.origin: Pose
+        self.map_frame = 'map'
+
         self.path_msg: Path = None
         
 
     def map_callback(self, msg:OccupancyGrid):
-        self.get_logger().info(f'I am recieving the map...')
+        # self.get_logger().info(f'I am recieving the map...')
 
         self.timestamp = { 
             "sec": msg.header.stamp.sec,
@@ -72,33 +70,34 @@ class R_Astar(Node):
         self.height = msg.info.height
         self.resolution = msg.info.resolution
 
-        self.get_logger().info(f"Map of width: {self.width}, height: {self.height}, resolution: {self.resolution}")
+        # self.get_logger().info(f"Map of width: {self.width}, height: {self.height}, resolution: {self.resolution}")
 
         # Converting the map to a 2D array
         self.state = np.reshape(self.map, (self.width, self.height), order='F')
         self.origin = msg.info.origin
 
-        self.get_logger().info(f"Map of max: {self.state.max()}, min: {self.state.min()}")
-        self.get_logger().info(f'Origin is {self.origin}')
+        # self.get_logger().info(f"Map of max: {self.state.max()}, min: {self.state.min()}")
+        # self.get_logger().info(f'Origin is {self.origin}')
 
         # Getting index for robot and goal
         self.robot_idx = self.pose_to_idx(self.robot_pose)
         self.goal_idx = self.pose_to_idx(self.goal_pose)
-        self.get_logger().info(f'robot pose and idx are {self.robot_pose},{self.robot_idx}')
+        # self.get_logger().info(f'robot pose and idx are {self.robot_pose},{self.robot_idx}')
         
-        self.get_logger().info(f'goal pose and goal idx are {self.goal_pose},{self.goal_idx}')
+        # self.get_logger().info(f'goal pose and goal idx are {self.goal_pose},{self.goal_idx}')
 
         # Calling A star
         path = self.A_star(self.robot_idx,self.goal_idx)
+        self.create_path_msg(path)
 
         # Publishing A star path
-        self.publish_path(path)
+        if not self.behavior:
+            self.publisher_path.publish(self.path_msg)
 
 
     def localization_callback (self,msg:Odometry):
         #self.get_logger().info(f'Recieving robot pose..')
         #self.get_logger().info(f'Robot pose is {msg.pose.pose.position.x},{msg.pose.pose.position.y}')
-
 
         self.robot_pose[0] = msg.pose.pose.position.x
         self.robot_pose[1] = msg.pose.pose.position.y
@@ -111,12 +110,13 @@ class R_Astar(Node):
         self.goal_pose[0] = msg.point.x
         self.goal_pose[1] = msg.point.y
 
-    def publish_path(self, path):
+
+    def create_path_msg(self, path):
 
         self.path_msg = Path()
         pose_list = []
 
-        self.get_logger().info(f'Path={path}')
+        # self.get_logger().info(f'Path={path}')
 
         for idx in path:
             position = self.idx_to_pose(idx)
@@ -132,8 +132,6 @@ class R_Astar(Node):
         self.path_msg.header.stamp.nanosec = self.timestamp["nanosec"]
         self.path_msg.header.frame_id = self.map_frame
 
-        self.publisher_path.publish(self.path_msg)
-        
 
     def heuristic(self,robot_idx,goal_idx):
         '''
@@ -182,6 +180,12 @@ class R_Astar(Node):
         pose_x, pose_y = (pose[0] , pose[1])
         pose_idx_x = round((pose_x - self.origin.position.x) / self.resolution)
         pose_idx_y = round((pose_y - self.origin.position.y) / self.resolution)
+
+        pose_idx_x = min(pose_idx_x, self.width)
+        pose_idx_y = min(pose_idx_y, self.height)
+
+        pose_idx_x = max(0, pose_idx_x)
+        pose_idx_y = max(0, pose_idx_y)
 
         return np.abs(np.array((pose_idx_x, pose_idx_y)))
     
@@ -288,9 +292,8 @@ class R_Astar(Node):
             _, current_node = heappop(fringe)
             expanded_nodes += 1
 
-            print(f"current_node: {current_node} | len(fringe): {len(fringe)}")
+            # print(f"current_node: {current_node} | len(fringe): {len(fringe)}")
 
-            
             # self.get_logger().info(f'current node, goal_idx = {current_node},{type(current_node)}')
             # self.get_logger().info(f'goal node, goal_idx = {goal_idx},{type(goal_idx)}')
             # self.get_logger().info( f'{current_node},{goal_idx},{np.equal(current_node, goal_idx).all()}')
