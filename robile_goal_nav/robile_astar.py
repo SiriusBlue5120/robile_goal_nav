@@ -1,10 +1,11 @@
+from heapq import heapify, heappop, heappush
+
 import numpy as np
-from typing import Callable, List, Tuple
-from geometry_msgs.msg import Point, Twist, PoseStamped,PoseArray,Pose,PointStamped,PoseWithCovarianceStamped
-from heapq import heappop,heappush,heapify
 import rclpy
+from geometry_msgs.msg import (PointStamped, Pose, PoseStamped,
+                               PoseWithCovarianceStamped)
+from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.node import Node
-from nav_msgs.msg import OccupancyGrid,Odometry,Path
 
 
 class R_Astar(Node):
@@ -55,6 +56,7 @@ class R_Astar(Node):
         self.map_frame = 'map'
 
         self.path_msg: Path = None
+        self.no_path = False
         
 
     def map_callback(self, msg:OccupancyGrid):
@@ -88,6 +90,12 @@ class R_Astar(Node):
 
         # Calling A star
         path = self.A_star(self.robot_idx,self.goal_idx)
+
+        if not path:
+            self.no_path = True
+        else:
+            self.no_path = False
+
         self.create_path_msg(path)
 
         # Publishing A star path
@@ -95,7 +103,7 @@ class R_Astar(Node):
             self.publisher_path.publish(self.path_msg)
 
 
-    def localization_callback (self,msg:Odometry):
+    def localization_callback (self, msg: Odometry | PoseWithCovarianceStamped):
         #self.get_logger().info(f'Recieving robot pose..')
         #self.get_logger().info(f'Robot pose is {msg.pose.pose.position.x},{msg.pose.pose.position.y}')
 

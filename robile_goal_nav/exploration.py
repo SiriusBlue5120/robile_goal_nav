@@ -1,19 +1,17 @@
-
-import rclpy
-from rclpy.node import Node
 import numpy as np
-from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import  Pose, PointStamped, PoseWithCovarianceStamped
-from geometry_msgs.msg import TransformStamped
-import tf_transformations as tf
+import rclpy
 import tf2_ros
+from geometry_msgs.msg import PointStamped, Pose, PoseWithCovarianceStamped
+from nav_msgs.msg import OccupancyGrid
+from rclpy.node import Node
+
 
 class Exploration(Node):
 
     def __init__(self, behavior=False):        
         super().__init__(node_name="Exploration")
         # Logging
-        self.verbose = True
+        self.verbose = False
         self.behavior = behavior
 
         self.data_grid: np.ndarray
@@ -23,7 +21,8 @@ class Exploration(Node):
         self.resolution = 0.0
         self.robot_pose = None
 
-        self.radius = 500
+        self.radius = 25
+        self.random = True
 
         # Attempts init
         self.attempts = 50
@@ -32,10 +31,10 @@ class Exploration(Node):
         self.odom_frame = 'map'
         self.robot_frame = 'base_link'
 
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-
         if not self.behavior:
+            self.tf_buffer = tf2_ros.Buffer()
+            self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+
             # subscription for map
             self.scan_subscriber = self.create_subscription(
                 OccupancyGrid, "/map",
@@ -136,7 +135,7 @@ class Exploration(Node):
 
             # self.get_logger().info(f"free: {free_space} | occupied_space: {occupied_space} | unknown_space: {unknown_space}")
 
-            condition = (0.5 <= unknown_space) # and (0.05 <= free_space)
+            condition = (unknown_space >= 0.7) and (free_space >= 0.4) and (occupied_space < 0.01)
 
             attempts += 1
 
@@ -148,10 +147,15 @@ class Exploration(Node):
         if not point_list:
             point_list = failed_points
 
+        # print(f"point_list: {point_list}")
+
         point_list = np.array(((point_list)))
         diference_list = point_list - self.robot_pose
         norm_vec = np.linalg.norm(diference_list,axis=1)
         min_value_idx = np.argmin(norm_vec)
+
+        if self.random:
+            min_value_idx = np.random.choice(range(point_list.shape[0]), 1)[0]
 
         point_next = point_list[min_value_idx]
 
