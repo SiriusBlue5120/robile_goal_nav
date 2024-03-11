@@ -1,5 +1,5 @@
 from heapq import heapify, heappop, heappush
-
+import skimage.measure
 import numpy as np
 import rclpy
 from geometry_msgs.msg import (PointStamped, Pose, PoseStamped,
@@ -19,6 +19,7 @@ class R_Astar(Node):
         self.robot_pose = np.zeros(2)
         self.goal_pose = np.zeros(2)
         self.state : np.array
+        self.compression: int = 8
 
         self.validation = True
         self.usePose = True
@@ -81,12 +82,20 @@ class R_Astar(Node):
         # self.get_logger().info(f"Map of max: {self.state.max()}, min: {self.state.min()}")
         # self.get_logger().info(f'Origin is {self.origin}')
 
+        # State compression 
+        self.state: np.ndarray = skimage.measure.block_reduce(self.state,(self.compression,self.compression),np.max,cval=0)
+        self.resolution *= self.compression
+        self.width = self.state.shape[0]
+        self.height = self.state.shape[1]
+
         # Getting index for robot and goal
         self.robot_idx = self.pose_to_idx(self.robot_pose)
         self.goal_idx = self.pose_to_idx(self.goal_pose)
         # self.get_logger().info(f'robot pose and idx are {self.robot_pose},{self.robot_idx}')
         
         # self.get_logger().info(f'goal pose and goal idx are {self.goal_pose},{self.goal_idx}')
+
+
 
         # Calling A star
         path = self.A_star(self.robot_idx,self.goal_idx)
