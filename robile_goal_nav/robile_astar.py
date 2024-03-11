@@ -10,7 +10,7 @@ from rclpy.node import Node
 
 class R_Astar(Node):
     
-    def __init__(self, behavior=False):
+    def __init__(self, pose_topic="/pose", behavior=False):
         super().__init__(node_name="A_star")
 
         self.behavior = behavior
@@ -19,10 +19,12 @@ class R_Astar(Node):
         self.robot_pose = np.zeros(2)
         self.goal_pose = np.zeros(2)
         self.state : np.array
-        self.compression: int = 8
+        self.compression: int = 10
 
         self.validation = True
         self.usePose = True
+
+        self.POSE_TOPIC = pose_topic
 
         if not self.behavior:
             # Map subscriber
@@ -30,12 +32,12 @@ class R_Astar(Node):
                 OccupancyGrid,
                 "/map",
                 self.map_callback,
-                10
+                qos_profile=rclpy.qos.qos_profile_sensor_data,
                 )
             # Pose or Odom listener
             self.subscriber_localization = self.create_subscription(
                 PoseWithCovarianceStamped if self.usePose else Odometry,
-                "/pose" if self.usePose else "/odom",
+                self.POSE_TOPIC if self.usePose else "/odom",
                 self.localization_callback,
                 10
                 )
