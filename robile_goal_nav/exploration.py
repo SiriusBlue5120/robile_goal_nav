@@ -21,11 +21,14 @@ class Exploration(Node):
         self.resolution = 0.0
         self.robot_pose = None
 
-        self.radius = 25
         self.random = True
 
         # Attempts init
-        self.attempts = 50
+        self.attempts = 1000
+        self.radius = 20
+        self.COND_UNKNOWN = (0.8, 1.0)
+        self.COND_FREE = (0.0, 0.2)
+        self.COND_OCCUPIED = (0.0, 0.01)
 
         # Frames
         self.odom_frame = 'map'
@@ -36,10 +39,10 @@ class Exploration(Node):
             self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
             # subscription for map
-            self.scan_subscriber = self.create_subscription(
+            self.map_subscriber = self.create_subscription(
                 OccupancyGrid, "/map",
                 self.get_occupancy_grid,
-                qos_profile=rclpy.qos.qos_profile_sensor_data
+                qos_profile=rclpy.qos.qos_profile_sensor_data,
                 )
             # Subscription to robot pose
             self.pose_subscriber = self.create_subscription(
@@ -55,7 +58,7 @@ class Exploration(Node):
                 10
                 )     
         else:
-            self.scan_subscriber = None
+            self.map_subscriber = None
             self.pose_subscriber = None
             self.pose_publisher = None
 
@@ -84,8 +87,8 @@ class Exploration(Node):
         # print(f"self.origin: {self.origin}")
         self.resolution = msg.info.resolution
 
-        self.data_grid = np.array(msg.data, dtype=np.int64).reshape(\
-            (self.height, self.width), order='F')
+        self.data_grid = np.array(msg.data, dtype=np.int8).reshape(\
+            (self.width, self.height), order='F')
 
         # data_in_2d = self.data_grid.reshape((self.height, self.width), order='F')
 
@@ -120,13 +123,16 @@ class Exploration(Node):
         while attempts < self.attempts:
 
             # Values for random sampling
-            x = np.random.randint(0,self.height)
-            y = np.random.randint(0,self.width)
-            random_point = (x,y)
+            x = np.random.randint(0, self.width)
+            y = np.random.randint(0, self.height)
+            random_point = (x, y)
 
             radius = self.radius
+            left_limit = (max(0, x - radius), max(0, y - radius))
+            right_limit = (min(self.width, x + radius), min(self.height, y + radius))
 
-            data_slice = self.data_grid[x-radius:x+radius,y-radius:y+radius]
+            data_slice = \
+                self.data_grid[left_limit[0]:right_limit[0], left_limit[1]:right_limit[1]]
             data_slice_size = np.size(data_slice)
 
             free_space = np.sum(data_slice == 0) / data_slice_size
@@ -135,7 +141,10 @@ class Exploration(Node):
 
             # self.get_logger().info(f"free: {free_space} | occupied_space: {occupied_space} | unknown_space: {unknown_space}")
 
-            condition = (unknown_space >= 0.7) and (free_space >= 0.4) and (occupied_space < 0.01)
+            condition = \
+                (self.COND_UNKNOWN[0] <= unknown_space <= self.COND_UNKNOWN[1]) and \
+                (self.COND_FREE[0] <= free_space <= self.COND_FREE[1]) and \
+                (self.COND_OCCUPIED[0] <= occupied_space <= self.COND_OCCUPIED[1])
 
             attempts += 1
 
@@ -163,8 +172,8 @@ class Exploration(Node):
             print('------------')
             print(point_next)
 
-        self.pose_next.point.x = point_next[0]*self.resolution + self.origin.position.x
-        self.pose_next.point.y = point_next[1]*self.resolution + self.origin.position.y
+        self.pose_next.point.x = point_next[0] * self.resolution + self.origin.position.x
+        self.pose_next.point.y = point_next[1] * self.resolution + self.origin.position.y
         # self.pose_next.pose.position.z = self.random_point[2]*self.resolution + self.origin.position.z
 
 
