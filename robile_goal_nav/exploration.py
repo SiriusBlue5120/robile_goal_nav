@@ -8,7 +8,7 @@ from rclpy.node import Node
 
 class Exploration(Node):
 
-    def __init__(self, behavior=False):        
+    def __init__(self, pose_topic="/pose", behavior=False):        
         super().__init__(node_name="Exploration")
         # Logging
         self.verbose = False
@@ -33,6 +33,7 @@ class Exploration(Node):
         # Frames
         self.odom_frame = 'map'
         self.robot_frame = 'base_link'
+        self.POSE_TOPIC = pose_topic
 
         if not self.behavior:
             self.tf_buffer = tf2_ros.Buffer()
@@ -47,7 +48,7 @@ class Exploration(Node):
             # Subscription to robot pose
             self.pose_subscriber = self.create_subscription(
                 PoseWithCovarianceStamped,
-                "/pose",
+                self.POSE_TOPIC,
                 self.pose_callback,
                 10
                 )
